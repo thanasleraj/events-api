@@ -87,3 +87,64 @@ func GetEventById(id int64) (*Event, error) {
 
 	return &event, nil
 }
+
+func (event *Event) Update() error {
+	query := `
+	UPDATE events 
+	SET name = ?, description = ?, location = ?, dateTime = ?
+	WHERE id = ?
+	`
+	statement, err := db.DB.Prepare(query)
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	_, err = statement.Exec(
+		event.Name, event.Description, event.Location, event.DateTime, event.ID,
+	)
+
+	return err
+}
+
+func PatchEvent(id int64, fields map[string]interface{}) (*Event, error) {
+	query := "UPDATE events SET "
+	params := []interface{}{}
+	index := 1
+
+	for key, value := range fields {
+		if index > 1 {
+			query += ", "
+		}
+		query += key + " = ?"
+		params = append(params, value)
+		index++
+	}
+
+	query += " WHERE id = ?"
+	params = append(params, id)
+
+	statement, err := db.DB.Prepare(query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer statement.Close()
+
+	_, err = statement.Exec(params...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	updatedEvent, err := GetEventById(id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedEvent, err
+}
