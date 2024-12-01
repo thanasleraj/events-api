@@ -190,3 +190,36 @@ func patchEvent(context *gin.Context) {
 		"event":   event,
 	})
 }
+
+func deleteEvent(context *gin.Context) {
+	id, err := strconv.ParseInt(context.Param("id"), 10, 64)
+
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{
+			"message": "Invalid event id",
+		})
+		return
+	}
+
+	event, err := models.GetEventById(id)
+
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{
+			"message": fmt.Sprintf("Failed to fetch event with id %v", id),
+		})
+		return
+	}
+
+	err = event.Delete()
+
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{
+			"message": fmt.Sprintf("Failed to delete event with id %v", id),
+		})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{
+		"message": "Successfully deleted event",
+	})
+}
