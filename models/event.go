@@ -3,6 +3,8 @@ package models
 import (
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
+
 	"example.com/events-api/db"
 )
 
@@ -23,7 +25,11 @@ type PatchEventRequest struct {
 }
 
 func GetAllEvents() ([]Event, error) {
-	query := "SELECT * FROM events"
+	query, _, err := sq.Select("*").From("events").ToSql()
+
+	if err != nil {
+		return nil, err
+	}
 
 	rows, err := db.DB.Query(query)
 
@@ -52,11 +58,20 @@ func GetAllEvents() ([]Event, error) {
 }
 
 func GetEventById(id int64) (*Event, error) {
-	query := "SELECT * FROM events WHERE id = ?"
-	row := db.DB.QueryRow(query, id)
+	query, params, err := sq.
+		Select("*").
+		From("events").
+		Where(sq.Eq{"id": id}).
+		ToSql()
+
+	if err != nil {
+		return nil, err
+	}
+
+	row := db.DB.QueryRow(query, params...)
 
 	var event Event
-	err := row.Scan(
+	err = row.Scan(
 		&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID,
 	)
 
@@ -68,10 +83,16 @@ func GetEventById(id int64) (*Event, error) {
 }
 
 func (event *Event) Save() error {
-	query := `
-	INSERT INTO events (name, description, location, dateTime, userId)
-	VALUES (?, ?, ?, ?, ?)
-	`
+	query, params, err := sq.
+		Insert("events").
+		Columns("name", "description", "location", "dateTime", "userId").
+		Values(event.Name, event.Description, event.Location, event.DateTime, event.UserID).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
 	statement, err := db.DB.Prepare(query)
 
 	if err != nil {
@@ -80,9 +101,7 @@ func (event *Event) Save() error {
 
 	defer statement.Close()
 
-	result, err := statement.Exec(
-		event.Name, event.Description, event.Location, event.DateTime, event.UserID,
-	)
+	result, err := statement.Exec(params...)
 
 	if err != nil {
 		return err
@@ -90,17 +109,29 @@ func (event *Event) Save() error {
 
 	id, err := result.LastInsertId()
 
+	if err != nil {
+		return err
+	}
+
 	event.ID = id
 
-	return err
+	return nil
 }
 
 func (event *Event) Update() error {
-	query := `
-	UPDATE events 
-	SET name = ?, description = ?, location = ?, dateTime = ?
-	WHERE id = ?
-	`
+	query, params, err := sq.
+		Update("events").
+		Set("name", event.Name).
+		Set("description", event.Description).
+		Set("location", event.Location).
+		Set("dateTime", event.DateTime).
+		Where(sq.Eq{"id": event.ID}).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
 	statement, err := db.DB.Prepare(query)
 
 	if err != nil {
@@ -109,49 +140,43 @@ func (event *Event) Update() error {
 
 	defer statement.Close()
 
-	_, err = statement.Exec(
-		event.Name, event.Description, event.Location, event.DateTime, event.ID,
-	)
+	_, err = statement.Exec(params...)
 
 	return err
 }
 
 func (event *Event) Patch(patchRequest PatchEventRequest) error {
-	params := []interface{}{}
-	query := "UPDATE events SET "
+	queryBuilder := sq.Update("events")
+	noData :=
+		patchRequest.Name == nil &&
+			patchRequest.Description == nil &&
+			patchRequest.Location == nil &&
+			patchRequest.DateTime == nil
 
-	if patchRequest.Name != nil {
-		query += "name = ?"
-		params = append(params, *patchRequest.Name)
-	}
-	if patchRequest.Description != nil {
-		if len(params) > 0 {
-			query += ", "
-		}
-		query += "description = ?"
-		params = append(params, *patchRequest.Description)
-	}
-	if patchRequest.Location != nil {
-		if len(params) > 0 {
-			query += ", "
-		}
-		query += "location = ?"
-		params = append(params, *patchRequest.Location)
-	}
-	if patchRequest.DateTime != nil {
-		if len(params) > 0 {
-			query += ", "
-		}
-		query += "dateTime = ?"
-		params = append(params, *patchRequest.DateTime)
-	}
-
-	if len(params) == 0 {
+	if noData {
 		return nil
 	}
 
-	query += " WHERE id = ?"
-	params = append(params, event.ID)
+	if patchRequest.Name != nil {
+		queryBuilder = queryBuilder.Set("name", *patchRequest.Name)
+	}
+	if patchRequest.Description != nil {
+		queryBuilder = queryBuilder.Set("description", *patchRequest.Description)
+	}
+	if patchRequest.Location != nil {
+		queryBuilder = queryBuilder.Set("location", *patchRequest.Location)
+	}
+	if patchRequest.DateTime != nil {
+		queryBuilder = queryBuilder.Set("dateTime", *patchRequest.DateTime)
+	}
+
+	queryBuilder = queryBuilder.Where(sq.Eq{"id": event.ID})
+
+	query, params, err := queryBuilder.ToSql()
+
+	if err != nil {
+		return err
+	}
 
 	statement, err := db.DB.Prepare(query)
 
@@ -184,7 +209,17 @@ func (event *Event) Patch(patchRequest PatchEventRequest) error {
 }
 
 func (event *Event) Delete() error {
-	query := "DELETE FROM events WHERE id = ?"
+	query, params, err := sq.
+		Delete("events").
+		Where(
+			sq.Eq{"id": event.ID},
+		).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
 	statement, err := db.DB.Prepare(query)
 
 	if err != nil {
@@ -193,7 +228,7 @@ func (event *Event) Delete() error {
 
 	defer statement.Close()
 
-	_, err = statement.Exec(event.ID)
+	_, err = statement.Exec(params...)
 
 	return err
 }

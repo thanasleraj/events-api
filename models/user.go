@@ -1,6 +1,8 @@
 package models
 
 import (
+	sq "github.com/Masterminds/squirrel"
+
 	"example.com/events-api/db"
 	"example.com/events-api/utils"
 )
@@ -12,7 +14,22 @@ type User struct {
 }
 
 func (user *User) Save() error {
-	query := "INSERT INTO users (email, password) VALUES (?, ?)"
+	hashedPassword, err := utils.HashPassword(user.Password)
+
+	if err != nil {
+		return err
+	}
+
+	query, args, err := sq.
+		Insert("users").
+		Columns("email", "password").
+		Values(user.Email, hashedPassword).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
 	statement, err := db.DB.Prepare(query)
 
 	if err != nil {
@@ -21,13 +38,7 @@ func (user *User) Save() error {
 
 	defer statement.Close()
 
-	hashedPassword, err := utils.HashPassword(user.Password)
-
-	if err != nil {
-		return err
-	}
-
-	result, err := statement.Exec(user.Email, hashedPassword)
+	result, err := statement.Exec(args...)
 
 	if err != nil {
 		return err
