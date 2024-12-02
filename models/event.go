@@ -15,6 +15,13 @@ type Event struct {
 	UserID      int
 }
 
+type PatchEventRequest struct {
+	Name        *string
+	Description *string
+	Location    *string
+	DateTime    *time.Time
+}
+
 func (event *Event) Save() error {
 	query := `
 	INSERT INTO events (name, description, location, dateTime, userId)
@@ -109,27 +116,47 @@ func (event *Event) Update() error {
 	return err
 }
 
-func PatchEvent(id int64, fields map[string]interface{}) (*Event, error) {
-	query := "UPDATE events SET "
+func (event *Event) Patch(patchRequest PatchEventRequest) error {
 	params := []interface{}{}
-	index := 1
+	query := "UPDATE events SET "
 
-	for key, value := range fields {
-		if index > 1 {
+	if patchRequest.Name != nil {
+		query += "name = ?"
+		params = append(params, *patchRequest.Name)
+	}
+	if patchRequest.Description != nil {
+		if len(params) > 0 {
 			query += ", "
 		}
-		query += key + " = ?"
-		params = append(params, value)
-		index++
+		query += "description = ?"
+		params = append(params, *patchRequest.Description)
+	}
+	if patchRequest.Location != nil {
+		if len(params) > 0 {
+			query += ", "
+		}
+		query += "location = ?"
+		params = append(params, *patchRequest.Location)
+	}
+	if patchRequest.DateTime != nil {
+		if len(params) > 0 {
+			query += ", "
+		}
+		query += "dateTime = ?"
+		params = append(params, *patchRequest.DateTime)
+	}
+
+	if len(params) == 0 {
+		return nil
 	}
 
 	query += " WHERE id = ?"
-	params = append(params, id)
+	params = append(params, event.ID)
 
 	statement, err := db.DB.Prepare(query)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer statement.Close()
@@ -137,16 +164,23 @@ func PatchEvent(id int64, fields map[string]interface{}) (*Event, error) {
 	_, err = statement.Exec(params...)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	updatedEvent, err := GetEventById(id)
-
-	if err != nil {
-		return nil, err
+	if patchRequest.Name != nil {
+		event.Name = *patchRequest.Name
+	}
+	if patchRequest.Description != nil {
+		event.Description = *patchRequest.Description
+	}
+	if patchRequest.Location != nil {
+		event.Location = *patchRequest.Location
+	}
+	if patchRequest.DateTime != nil {
+		event.DateTime = *patchRequest.DateTime
 	}
 
-	return updatedEvent, err
+	return nil
 }
 
 func (event *Event) Delete() error {

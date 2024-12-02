@@ -9,14 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// A map to store the allowed fields we can patch in an event
-var patchAllowedFields = map[string]bool{
-	"name":        true,
-	"description": true,
-	"location":    true,
-	"dateTime":    true,
-}
-
 func getEvents(context *gin.Context) {
 	events, err := models.GetAllEvents()
 
@@ -141,7 +133,7 @@ func patchEvent(context *gin.Context) {
 		return
 	}
 
-	existingEvent, err := models.GetEventById(id)
+	event, err := models.GetEventById(id)
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
@@ -150,8 +142,8 @@ func patchEvent(context *gin.Context) {
 		return
 	}
 
-	var patchFields map[string]interface{}
-	err = context.ShouldBindJSON(&patchFields)
+	var patchRequest models.PatchEventRequest
+	err = context.ShouldBindJSON(&patchRequest)
 
 	if err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{
@@ -160,24 +152,7 @@ func patchEvent(context *gin.Context) {
 		return
 	}
 
-	if len(patchFields) == 0 {
-		context.JSON(http.StatusOK, gin.H{
-			"message": "Successfully updated event",
-			"event":   existingEvent,
-		})
-		return
-	}
-
-	for key := range patchFields {
-		if !patchAllowedFields[key] {
-			context.JSON(http.StatusBadRequest, gin.H{
-				"message": fmt.Sprintf("Invalid field: %v", key),
-			})
-			return
-		}
-	}
-
-	event, err := models.PatchEvent(id, patchFields)
+	err = event.Patch(patchRequest)
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
