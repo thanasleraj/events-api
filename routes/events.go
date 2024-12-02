@@ -96,7 +96,7 @@ func updateEvent(context *gin.Context) {
 	existingEvent, err := models.GetEventById(id)
 
 	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{
+		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": fmt.Sprintf("Failed to fetch event with id %v", id),
 		})
 		return
@@ -118,7 +118,7 @@ func updateEvent(context *gin.Context) {
 	err = updatedEvent.Update()
 
 	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{
+		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": fmt.Sprintf("Failed to update event with id %v", id),
 		})
 		return
@@ -143,7 +143,7 @@ func patchEvent(context *gin.Context) {
 	existingEvent, err := models.GetEventById(id)
 
 	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{
+		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": fmt.Sprintf("Failed to fetch event with id %v", id),
 		})
 		return
