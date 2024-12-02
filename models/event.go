@@ -22,34 +22,6 @@ type PatchEventRequest struct {
 	DateTime    *time.Time
 }
 
-func (event *Event) Save() error {
-	query := `
-	INSERT INTO events (name, description, location, dateTime, userId)
-	VALUES (?, ?, ?, ?, ?)
-	`
-	statement, err := db.DB.Prepare(query)
-
-	if err != nil {
-		return err
-	}
-
-	defer statement.Close()
-
-	result, err := statement.Exec(
-		event.Name, event.Description, event.Location, event.DateTime, event.UserID,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	id, err := result.LastInsertId()
-
-	event.ID = id
-
-	return err
-}
-
 func GetAllEvents() ([]Event, error) {
 	query := "SELECT * FROM events"
 
@@ -93,6 +65,34 @@ func GetEventById(id int64) (*Event, error) {
 	}
 
 	return &event, nil
+}
+
+func (event *Event) Save() error {
+	query := `
+	INSERT INTO events (name, description, location, dateTime, userId)
+	VALUES (?, ?, ?, ?, ?)
+	`
+	statement, err := db.DB.Prepare(query)
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	result, err := statement.Exec(
+		event.Name, event.Description, event.Location, event.DateTime, event.UserID,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	id, err := result.LastInsertId()
+
+	event.ID = id
+
+	return err
 }
 
 func (event *Event) Update() error {
