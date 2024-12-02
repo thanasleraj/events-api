@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// A map to store the allowed fields we can patch in an event
 var patchAllowedFields = map[string]bool{
 	"name":        true,
 	"description": true,
