@@ -1,6 +1,8 @@
 package models
 
 import (
+	"errors"
+
 	sq "github.com/Masterminds/squirrel"
 
 	"example.com/events-api/db"
@@ -51,6 +53,36 @@ func (user *User) Save() error {
 	}
 
 	user.ID = userId
+
+	return nil
+}
+
+func (user *User) ValidateCredentials() error {
+	query, params, err := sq.
+		Select("id", "password").
+		From("users").
+		Where(sq.Eq{"email": user.Email}).
+		ToSql()
+	errorMessage := "Invalid credentials"
+
+	if err != nil {
+		return errors.New(errorMessage)
+	}
+
+	row := db.DB.QueryRow(query, params...)
+
+	var retrievedPassword string
+	err = row.Scan(&user.ID, &retrievedPassword)
+
+	if err != nil {
+		return errors.New(errorMessage)
+	}
+
+	isPasswordValid := utils.CheckPasswordHash(user.Password, retrievedPassword)
+
+	if !isPasswordValid {
+		return errors.New(errorMessage)
+	}
 
 	return nil
 }
