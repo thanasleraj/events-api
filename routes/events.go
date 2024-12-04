@@ -47,7 +47,6 @@ func getEventById(context *gin.Context) {
 
 func createEvent(context *gin.Context) {
 	var event models.Event
-
 	err := context.ShouldBindJSON(&event)
 
 	if err != nil {
@@ -58,7 +57,9 @@ func createEvent(context *gin.Context) {
 		return
 	}
 
-	event.UserID = 1
+	userId := context.GetInt64("userId")
+
+	event.UserID = userId
 
 	err = event.Save()
 
@@ -86,11 +87,19 @@ func updateEvent(context *gin.Context) {
 		return
 	}
 
+	userId := context.GetInt64("userId")
 	existingEvent, err := models.GetEventById(id)
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": fmt.Sprintf("Failed to fetch event with id %v", id),
+		})
+		return
+	}
+
+	if userId != existingEvent.UserID {
+		context.JSON(http.StatusForbidden, gin.H{
+			"message": "Forbidden",
 		})
 		return
 	}
@@ -133,11 +142,19 @@ func patchEvent(context *gin.Context) {
 		return
 	}
 
+	userId := context.GetInt64("userId")
 	event, err := models.GetEventById(id)
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": fmt.Sprintf("Failed to fetch event with id %v", id),
+		})
+		return
+	}
+
+	if userId != event.UserID {
+		context.JSON(http.StatusForbidden, gin.H{
+			"message": "Forbidden",
 		})
 		return
 	}
@@ -177,11 +194,19 @@ func deleteEvent(context *gin.Context) {
 		return
 	}
 
+	userId := context.GetInt64("userId")
 	event, err := models.GetEventById(id)
 
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{
 			"message": fmt.Sprintf("Failed to fetch event with id %v", id),
+		})
+		return
+	}
+
+	if userId != event.UserID {
+		context.JSON(http.StatusForbidden, gin.H{
+			"message": "Forbidden",
 		})
 		return
 	}
