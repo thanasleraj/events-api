@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -227,6 +228,78 @@ func (event *Event) Delete() error {
 	}
 
 	defer statement.Close()
+
+	_, err = statement.Exec(params...)
+
+	return err
+}
+
+func (event *Event) IsUserRegistered(userId int64) (bool, error) {
+	query, params, err := sq.
+		Select("id").
+		From("registrations").
+		Where(sq.Eq{"eventId": event.ID, "userId": userId}).
+		ToSql()
+	if err != nil {
+		return false, err
+	}
+
+	var registrationId int
+	row := db.DB.QueryRow(query, params...)
+
+	err = row.Scan(&registrationId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// No registration found
+			return false, nil
+		}
+		// Some other error occurred
+		return false, err
+	}
+
+	// Registration exists
+	return true, nil
+}
+
+func (event *Event) Register(userId int64) error {
+	query, params, err := sq.
+		Insert("registrations").
+		Columns("eventId", "userId").
+		Values(event.ID, userId).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	statement, err := db.DB.Prepare(query)
+
+	if err != nil {
+		return err
+	}
+
+	defer statement.Close()
+
+	_, err = statement.Exec(params...)
+
+	return err
+}
+
+func (event *Event) CancelRegistration(userId int64) error {
+	query, params, err := sq.
+		Delete("registrations").
+		Where(sq.Eq{"eventId": event.ID, "userId": userId}).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	statement, err := db.DB.Prepare(query)
+
+	if err != nil {
+		return err
+	}
 
 	_, err = statement.Exec(params...)
 
