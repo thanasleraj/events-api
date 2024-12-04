@@ -61,5 +61,4 @@ func VerifyJwtToken(authHeader string) (int64, error) {
 	}
 
 	return int64(userId), nil
-
 }
